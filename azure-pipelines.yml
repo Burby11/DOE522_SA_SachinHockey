@@ -1,86 +1,35 @@
-trigger:
-- main
-
 stages:
-- stage: Build
-  jobs:
-  - job: Build
-    pool:
-      vmImage: 'windows-latest'
-    steps:
-    - task: UseDotNet@2
-      inputs:
-        packageType: 'sdk'
-        version: '3.1.x'
-        installationPath: $(Agent.ToolsDirectory)/dotnet
-    - script: dotnet restore
-      displayName: 'Restore NuGet packages'
-    - script: dotnet build --configuration Release
-      displayName: 'Build solution'
-    - task: CopyFiles@2
-      inputs:
-        SourceFolder: '$(System.DefaultWorkingDirectory)/path/to/artifacts'
-        Contents: '**/*.dll'
-        TargetFolder: '$(Build.ArtifactStagingDirectory)'
-    - task: PublishBuildArtifacts@1
-      inputs:
-        pathtoPublish: '$(Build.ArtifactStagingDirectory)'
-        artifactName: 'drop'
-        publishLocation: 'Container'
+  - build
+  - test
+  - deploy
 
-- stage: Test
-  jobs:
-  - job: Test
-    pool:
-      vmImage: 'windows-latest'
-    dependsOn: Build
-    steps:
-    - task: UseDotNet@2
-      inputs:
-        packageType: 'sdk'
-        version: '3.1.x'
-        installationPath: $(Agent.ToolsDirectory)/dotnet
-    - script: dotnet test --configuration Release --no-build
-      displayName: 'Run unit tests'
-    - script: |
-        # Add code quality checks (e.g., code coverage, code analysis) here
-        # Example: dotnet tool install --global dotnet-reportgenerator-globaltool
-        #          dotnet test --configuration Release /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
-        #          reportgenerator -reports:**/coverage.opencover.xml -targetdir:$(Build.SourcesDirectory)/CodeCoverage
-      displayName: 'Code Quality Checks'
+variables:
+  # Define your environment variables here
+  DATABASE_URL: "postgres://user:password@localhost:5432/dbname"
+  API_KEY: "your_api_key"
 
-- stage: Deploy
-  jobs:
-  - job: Deploy
-    pool:
-      vmImage: 'windows-latest'
-    dependsOn: Test
-    steps:
-    - download: current
-      artifact: 'drop'
-      displayName: 'Download artifacts'
-    - task: AzureWebApp@1
-      inputs:
-        azureSubscription: 'YourAzureServiceConnection'
-        appName: 'YourStagingAppName'
-        package: '$(System.ArtifactsDirectory)/drop/*.dll'
-        deploymentMethod: 'auto'
+before_script:
+  # Set up any pre-requisites or environment configuration here
+  - echo "Setting up environment..."
 
-# Notification mechanism
-pr:
-- '*'
+build:
+  stage: build
+  script:
+    - echo "Building the application..."
+    - npm install   # Example: Installing dependencies for a Node.js application
+    - npm run build # Example: Building the application
 
-jobs:
-- job: NotifyOnFailure
-  pool:
-    vmImage: 'windows-latest'
-  steps:
-  - task: UseDotNet@2
-    inputs:
-      packageType: 'sdk'
-      version: '3.1.x'
-      installationPath: $(Agent.ToolsDirectory)/dotnet
-  - script: dotnet tool install --global nukeeper
-    displayName: 'Install NuKeeper'
-  - script: nukeeper --api-token $(System.AccessToken) --comments false
-    displayName: 'Run NuKeeper'
+test:
+  stage: test
+  script:
+    - echo "Running tests..."
+    - npm test      # Example: Running tests for a Node.js application
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Deploying to production..."
+    - ./deploy.sh   # Example: Running a deployment script
+  only:
+    - master # Deploy only when changes are pushed to the master branch
+
